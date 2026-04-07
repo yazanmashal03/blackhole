@@ -5,20 +5,22 @@ from matplotlib.widgets import Slider, Button
 
 # --- PyScript/Matplotlib Compatibility Fix ---
 try:
+    from pyscript import display
     import matplotlib_pyodide.browser_backend
+    
     if hasattr(matplotlib_pyodide.browser_backend, 'TimerWasm'):
-        _original_init = matplotlib_pyodide.browser_backend.TimerWasm.__init__
-        def _patched_init(self, *args, **kwargs):
+        original_init = matplotlib_pyodide.browser_backend.TimerWasm.__init__
+        def patched_init(self, *args, **kwargs):
             self._timer = None
-            _original_init(self, *args, **kwargs)
-        matplotlib_pyodide.browser_backend.TimerWasm.__init__ = _patched_init
-except ImportError:
+            original_init(self, *args, **kwargs)
+        matplotlib_pyodide.browser_backend.TimerWasm.__init__ = patched_init
+except (ImportError, AttributeError):
     pass
 # ---------------------------------------------
 
 # Physical Constants (Normalized for the simulation)
-G = 1.0  # Gravitational constant
-C = 10.0 # Speed of light (kept low for visual effect of relativity)
+G = 1.0 
+C = 10.0
 
 class BlackHole:
     def __init__(self, x, y, vx, vy, mass, color):
