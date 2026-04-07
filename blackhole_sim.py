@@ -158,6 +158,17 @@ plt.title("Black Hole Collision Simulation")
 # Check if running in a browser environment (PyScript/Pyodide)
 try:
     from pyscript import display
+    import matplotlib_pyodide.browser_backend
+    
+    # Monkey-patch TimerWasm to fix the AttributeError: 'TimerWasm' object has no attribute '_timer'
+    # This is a known issue in matplotlib-pyodide's interaction with newer matplotlib versions.
+    if hasattr(matplotlib_pyodide.browser_backend, 'TimerWasm'):
+        original_init = matplotlib_pyodide.browser_backend.TimerWasm.__init__
+        def patched_init(self, *args, **kwargs):
+            self._timer = None
+            original_init(self, *args, **kwargs)
+        matplotlib_pyodide.browser_backend.TimerWasm.__init__ = patched_init
+
     display(fig, target="plot-area")
-except ImportError:
+except (ImportError, AttributeError):
     plt.show()
