@@ -154,4 +154,10 @@ button_pause.on_clicked(toggle_pause)
 
 ani = FuncAnimation(fig, update, frames=200, init_func=init, blit=True, interval=20)
 plt.title("Black Hole Collision Simulation")
-plt.show()
+
+# Check if running in a browser environment (PyScript/Pyodide)
+try:
+    from pyscript import display
+    display(fig, target="plot-area")
+except ImportError:
+    plt.show()

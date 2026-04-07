@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Hole Collision Simulation</title>
+    <!-- PyScript CSS and JS -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+        body { margin: 0; background-color: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #plot-area { width: 100%; max-width: 900px; margin-top: 20px; }
+        .loading { margin-top: 50px; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <h1>Black Hole Simulation</h1>
+    <div id="plot-area">
+        <div class="loading">Initializing Python environment... (this may take a few seconds)</div>
+    </div>
+
+    <!-- PyScript Configuration -->
+    <script type="py" src="./blackhole_sim.py" config='{
+        "packages": ["numpy", "matplotlib"]
+    }'></script>
+</body>
+</html>
