@@ -1,27 +1,810 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Black Hole Collision Simulation</title>
-    <!-- PyScript CSS and JS -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-    <style>
-        body { margin: 0; background-color: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        #plot-area { width: 100%; max-width: 900px; margin-top: 20px; }
-        .loading { margin-top: 50px; font-size: 1.2rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Hole Simulation</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --panel-bg: rgba(8, 10, 14, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.14);
+      --text: #f5f7fb;
+      --muted: #aab6c8;
+      --accent: #ff9b42;
+      --accent-cool: #6fd7ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020305;
+      color: var(--text);
+    }
+
+    body {
+      position: relative;
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      width: min(320px, calc(100vw - 32px));
+      padding: 14px 14px 12px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      backdrop-filter: blur(18px);
+      z-index: 10;
+    }
+
+    .hud h1 {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+      line-height: 1.2;
+      font-weight: 650;
+    }
+
+    .hud p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .control {
+      margin-bottom: 10px;
+    }
+
+    .control:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+      font-size: 0.82rem;
+    }
+
+    .control-row span:last-child {
+      color: var(--accent-cool);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stat {
+      min-width: 0;
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      display: block;
+      font-size: 0.92rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .footer {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 10px 12px;
+      color: rgba(240, 244, 250, 0.84);
+      background: rgba(7, 9, 12, 0.54);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      z-index: 10;
+    }
+
+    .status {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: min(360px, calc(100vw - 32px));
+      padding: 12px 14px;
+      background: rgba(34, 10, 10, 0.88);
+      border: 1px solid rgba(255, 150, 150, 0.35);
+      border-radius: 8px;
+      color: #ffe0e0;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      z-index: 20;
+    }
+
+    .status[hidden] {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      .hud {
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+      }
+
+      .footer {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        max-width: none;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div id="scene" aria-hidden="true"></div>
+  <div id="status" class="status" hidden></div>
+
+  <section class="hud">
     <h1>Black Hole Simulation</h1>
-    <div id="plot-area">
-        <div class="loading">Initializing Python environment... (this may take a few seconds)</div>
+    <p>Orbit the camera, then tune the horizon size, spin, accretion flow, and lensing strength.</p>
+
+    <div class="control">
+      <div class="control-row">
+        <span>Mass</span>
+        <span id="massValue">28.0 M☉</span>
+      </div>
+      <input id="mass" type="range" min="8" max="80" step="0.5" value="28">
     </div>
 
-    <!-- PyScript Configuration -->
-    <script type="py" src="./blackhole_sim.py" config='{
-        "packages": ["numpy", "matplotlib"]
-    }'></script>
+    <div class="control">
+      <div class="control-row">
+        <span>Spin</span>
+        <span id="spinValue">0.82 a*</span>
+      </div>
+      <input id="spin" type="range" min="0" max="0.998" step="0.002" value="0.82">
+    </div>
+
+    <div class="control">
+      <div class="control-row">
+        <span>Accretion Rate</span>
+        <span id="accretionValue">0.68 Ṁ</span>
+      </div>
+      <input id="accretion" type="range" min="0.15" max="1.4" step="0.01" value="0.68">
+    </div>
+
+    <div class="control">
+      <div class="control-row">
+        <span>Lensing</span>
+        <span id="lensingValue">1.10×</span>
+      </div>
+      <input id="lensing" type="range" min="0.6" max="1.8" step="0.01" value="1.1">
+    </div>
+
+    <div class="control">
+      <div class="control-row">
+        <span>Time Scale</span>
+        <span id="timeValue">1.00×</span>
+      </div>
+      <input id="timeScale" type="range" min="0.2" max="2.4" step="0.01" value="1">
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Schwarzschild Radius</span>
+        <span class="stat-value" id="radiusValue">8.16 km</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">ISCO</span>
+        <span class="stat-value" id="iscoValue">20.6 km</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Photon Ring</span>
+        <span class="stat-value" id="photonValue">24.5 km</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Disk Temperature</span>
+        <span class="stat-value" id="tempValue">6.4 MK</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">Mouse or trackpad to orbit. The visual model approximates lensing, Doppler brightening, and relativistic disk structure for an isolated Kerr black hole.</div>
+
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+
+    function showStatus(message) {
+      statusEl.textContent = message;
+      statusEl.hidden = false;
+    }
+
+    if (!window.THREE) {
+      showStatus("Three.js failed to load. Open the page with internet access or serve the project locally instead of relying on a blocked CDN request.");
+      throw new Error("Three.js failed to load.");
+    }
+
+    try {
+      const params = {
+      mass: 28,
+      spin: 0.82,
+      accretion: 0.68,
+      lensing: 1.1,
+      timeScale: 1
+      };
+
+      const sceneRoot = document.getElementById("scene");
+      const massInput = document.getElementById("mass");
+      const spinInput = document.getElementById("spin");
+      const accretionInput = document.getElementById("accretion");
+      const lensingInput = document.getElementById("lensing");
+      const timeInput = document.getElementById("timeScale");
+
+      const valueEls = {
+      mass: document.getElementById("massValue"),
+      spin: document.getElementById("spinValue"),
+      accretion: document.getElementById("accretionValue"),
+      lensing: document.getElementById("lensingValue"),
+      timeScale: document.getElementById("timeValue"),
+      radius: document.getElementById("radiusValue"),
+      isco: document.getElementById("iscoValue"),
+      photon: document.getElementById("photonValue"),
+      temp: document.getElementById("tempValue")
+      };
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.35;
+      sceneRoot.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x020305, 0.008);
+
+      const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 900);
+      camera.position.set(0, 7.5, 26);
+
+      const orbitState = {
+        target: new THREE.Vector3(0, 0, 0),
+        radius: 27,
+        theta: 0,
+        phi: 1.1,
+        radiusVelocity: 0,
+        thetaVelocity: 0,
+        phiVelocity: 0,
+        pointerActive: false,
+        lastX: 0,
+        lastY: 0
+      };
+
+      function clampOrbit() {
+        orbitState.radius = THREE.MathUtils.clamp(orbitState.radius, 8, 70);
+        orbitState.phi = THREE.MathUtils.clamp(orbitState.phi, 0.2, Math.PI - 0.2);
+      }
+
+      function updateCameraFromOrbit() {
+        clampOrbit();
+        const sinPhiRadius = Math.sin(orbitState.phi) * orbitState.radius;
+        camera.position.set(
+          orbitState.target.x + sinPhiRadius * Math.sin(orbitState.theta),
+          orbitState.target.y + Math.cos(orbitState.phi) * orbitState.radius,
+          orbitState.target.z + sinPhiRadius * Math.cos(orbitState.theta)
+        );
+        camera.lookAt(orbitState.target);
+      }
+
+      function dampOrbit() {
+        orbitState.theta += orbitState.thetaVelocity;
+        orbitState.phi += orbitState.phiVelocity;
+        orbitState.radius += orbitState.radiusVelocity;
+        orbitState.thetaVelocity *= 0.9;
+        orbitState.phiVelocity *= 0.9;
+        orbitState.radiusVelocity *= 0.82;
+        updateCameraFromOrbit();
+      }
+
+      renderer.domElement.addEventListener("pointerdown", (event) => {
+        orbitState.pointerActive = true;
+        orbitState.lastX = event.clientX;
+        orbitState.lastY = event.clientY;
+        renderer.domElement.setPointerCapture(event.pointerId);
+      });
+
+      renderer.domElement.addEventListener("pointermove", (event) => {
+        if (!orbitState.pointerActive) {
+          return;
+        }
+        const dx = event.clientX - orbitState.lastX;
+        const dy = event.clientY - orbitState.lastY;
+        orbitState.lastX = event.clientX;
+        orbitState.lastY = event.clientY;
+        orbitState.thetaVelocity -= dx * 0.0035;
+        orbitState.phiVelocity -= dy * 0.0035;
+      });
+
+      renderer.domElement.addEventListener("pointerup", (event) => {
+        orbitState.pointerActive = false;
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      });
+
+      renderer.domElement.addEventListener("pointerleave", () => {
+        orbitState.pointerActive = false;
+      });
+
+      renderer.domElement.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        orbitState.radiusVelocity += event.deltaY * 0.0025;
+      }, { passive: false });
+
+      updateCameraFromOrbit();
+
+      scene.add(new THREE.AmbientLight(0x2b3038, 0.8));
+
+      const keyLight = new THREE.PointLight(0xffc37c, 25, 70, 2);
+      keyLight.position.set(0, 2.5, 0);
+      scene.add(keyLight);
+
+      const fillLight = new THREE.PointLight(0x6fd7ff, 10, 120, 2);
+      fillLight.position.set(-18, 9, 20);
+      scene.add(fillLight);
+
+      function createSpriteTexture(innerColor, outerColor) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+      const gradient = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
+      gradient.addColorStop(0, innerColor);
+      gradient.addColorStop(0.3, innerColor);
+      gradient.addColorStop(1, outerColor);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 128, 128);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+      }
+
+      const starTexture = createSpriteTexture("rgba(255,255,255,1)", "rgba(255,255,255,0)");
+      const plasmaTexture = createSpriteTexture("rgba(255,245,230,1)", "rgba(255,120,40,0)");
+      const jetTexture = createSpriteTexture("rgba(180,240,255,0.9)", "rgba(30,190,255,0)");
+
+      const blackHoleGroup = new THREE.Group();
+      scene.add(blackHoleGroup);
+
+      const horizonMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x040506,
+      roughness: 0.95,
+      metalness: 0,
+      transmission: 0,
+      clearcoat: 0,
+      emissive: 0x000000
+    });
+
+      const horizonMesh = new THREE.Mesh(new THREE.SphereGeometry(2.2, 96, 96), horizonMaterial);
+      blackHoleGroup.add(horizonMesh);
+
+      const haloMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        time: { value: 0 },
+        lensing: { value: params.lensing },
+        spin: { value: params.spin },
+        colorA: { value: new THREE.Color(0xffb05e) },
+        colorB: { value: new THREE.Color(0x62dbff) }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform float time;
+        uniform float lensing;
+        uniform float spin;
+        uniform vec3 colorA;
+        uniform vec3 colorB;
+
+        void main() {
+          vec2 centered = vUv - 0.5;
+          float r = length(centered) * 2.0;
+          float angle = atan(centered.y, centered.x);
+          float swirl = sin(angle * 6.0 - time * (1.7 + spin * 2.5) + r * 8.0);
+          float ring = exp(-pow((r - 0.62) * (2.1 - spin * 0.6), 2.0) * 28.0);
+          float outer = exp(-pow((r - 1.05), 2.0) * 5.0) * 0.35;
+          float shadow = smoothstep(0.34, 0.55, r);
+          float flare = max(swirl, 0.0) * ring * (0.35 + lensing * 0.45);
+          vec3 color = mix(colorB, colorA, clamp(0.55 + swirl * 0.25 + spin * 0.2, 0.0, 1.0));
+          float alpha = (ring + outer + flare) * shadow;
+          alpha *= smoothstep(1.45, 0.7, r);
+          gl_FragColor = vec4(color, alpha);
+        }
+      `
+    });
+
+      const haloMesh = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), haloMaterial);
+      blackHoleGroup.add(haloMesh);
+
+      const photonRingMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffa15c,
+      transparent: true,
+      opacity: 0.26,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    });
+
+      const photonRing = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.18, 30, 180), photonRingMaterial);
+      photonRing.rotation.x = Math.PI / 2;
+      blackHoleGroup.add(photonRing);
+
+      const diskCount = 14000;
+      const diskPositions = new Float32Array(diskCount * 3);
+      const diskColors = new Float32Array(diskCount * 3);
+      const diskScales = new Float32Array(diskCount);
+      const diskMeta = new Float32Array(diskCount * 4);
+      const diskGeometry = new THREE.BufferGeometry();
+
+      function orbitalColor(temperature, dopplerBoost) {
+      const color = new THREE.Color();
+      const hue = THREE.MathUtils.lerp(0.57, 0.05, temperature);
+      const sat = THREE.MathUtils.lerp(0.55, 0.95, temperature);
+      const light = THREE.MathUtils.lerp(0.48, 0.78, dopplerBoost);
+      color.setHSL(hue, sat, light);
+      return color;
+      }
+
+      function generateDisk() {
+      const rs = 2 + params.mass * 0.065;
+      const isco = rs * THREE.MathUtils.lerp(2.7, 1.15, params.spin);
+      const outer = rs * THREE.MathUtils.lerp(8.5, 14.0, params.accretion);
+
+      for (let i = 0; i < diskCount; i++) {
+        const radius = THREE.MathUtils.lerp(isco * 1.03, outer, Math.pow(Math.random(), 1.9));
+        const angle = Math.random() * Math.PI * 2;
+        const height = (Math.random() - 0.5) * THREE.MathUtils.lerp(0.15, 0.85, radius / outer) * (0.65 + params.accretion * 0.9);
+        const turbulence = Math.random();
+        const tempBias = 1 - THREE.MathUtils.clamp((radius - isco) / (outer - isco), 0, 1);
+        const doppler = 0.5 + 0.5 * Math.sin(angle + 0.7);
+        const color = orbitalColor(Math.pow(tempBias, 0.7), doppler);
+
+        const idx3 = i * 3;
+        const idx4 = i * 4;
+        diskPositions[idx3] = Math.cos(angle) * radius;
+        diskPositions[idx3 + 1] = height;
+        diskPositions[idx3 + 2] = Math.sin(angle) * radius;
+        diskColors[idx3] = color.r;
+        diskColors[idx3 + 1] = color.g;
+        diskColors[idx3 + 2] = color.b;
+        diskScales[i] = THREE.MathUtils.lerp(10, 32, Math.random()) * (0.7 + tempBias * 0.8);
+        diskMeta[idx4] = radius;
+        diskMeta[idx4 + 1] = angle;
+        diskMeta[idx4 + 2] = height;
+        diskMeta[idx4 + 3] = turbulence;
+      }
+
+      diskGeometry.setAttribute("position", new THREE.BufferAttribute(diskPositions, 3));
+      diskGeometry.setAttribute("color", new THREE.BufferAttribute(diskColors, 3));
+      diskGeometry.setAttribute("size", new THREE.BufferAttribute(diskScales, 1));
+      diskGeometry.computeBoundingSphere();
+      }
+
+      generateDisk();
+
+      const diskMaterial = new THREE.PointsMaterial({
+      map: plasmaTexture,
+      size: 0.18,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: true
+    });
+
+      const diskPoints = new THREE.Points(diskGeometry, diskMaterial);
+      blackHoleGroup.add(diskPoints);
+
+      const jetCount = 3200;
+      const jetPositions = new Float32Array(jetCount * 3);
+      const jetColors = new Float32Array(jetCount * 3);
+      const jetMeta = new Float32Array(jetCount * 4);
+      const jetGeometry = new THREE.BufferGeometry();
+
+      function generateJets() {
+      for (let i = 0; i < jetCount; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const stream = Math.random();
+        const y = side * THREE.MathUtils.lerp(3.5, 40, Math.pow(stream, 0.55));
+        const radius = THREE.MathUtils.lerp(0.05, 2.2, Math.pow(stream, 1.8));
+        const angle = Math.random() * Math.PI * 2;
+        const idx3 = i * 3;
+        const idx4 = i * 4;
+        jetPositions[idx3] = Math.cos(angle) * radius;
+        jetPositions[idx3 + 1] = y;
+        jetPositions[idx3 + 2] = Math.sin(angle) * radius;
+        jetColors[idx3] = 0.45 + Math.random() * 0.2;
+        jetColors[idx3 + 1] = 0.78 + Math.random() * 0.2;
+        jetColors[idx3 + 2] = 1.0;
+        jetMeta[idx4] = side;
+        jetMeta[idx4 + 1] = stream;
+        jetMeta[idx4 + 2] = angle;
+        jetMeta[idx4 + 3] = radius;
+      }
+
+      jetGeometry.setAttribute("position", new THREE.BufferAttribute(jetPositions, 3));
+      jetGeometry.setAttribute("color", new THREE.BufferAttribute(jetColors, 3));
+      jetGeometry.computeBoundingSphere();
+      }
+
+      generateJets();
+
+      const jetMaterial = new THREE.PointsMaterial({
+      map: jetTexture,
+      size: 0.36,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.62,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: true
+    });
+
+      const jetPoints = new THREE.Points(jetGeometry, jetMaterial);
+      blackHoleGroup.add(jetPoints);
+
+      const starCount = 6500;
+      const starPositions = new Float32Array(starCount * 3);
+      const starColors = new Float32Array(starCount * 3);
+      const starSizes = new Float32Array(starCount);
+      const starGeometry = new THREE.BufferGeometry();
+
+      for (let i = 0; i < starCount; i++) {
+      const radius = THREE.MathUtils.randFloat(90, 300);
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+      const idx = i * 3;
+      starPositions[idx] = radius * Math.sin(phi) * Math.cos(theta);
+      starPositions[idx + 1] = radius * Math.cos(phi) * 0.7;
+      starPositions[idx + 2] = radius * Math.sin(phi) * Math.sin(theta);
+
+      const temperature = Math.random();
+      const color = new THREE.Color().setHSL(
+        THREE.MathUtils.lerp(0.58, 0.11, temperature),
+        THREE.MathUtils.lerp(0.15, 0.65, temperature),
+        THREE.MathUtils.lerp(0.68, 0.92, Math.random())
+      );
+      starColors[idx] = color.r;
+      starColors[idx + 1] = color.g;
+      starColors[idx + 2] = color.b;
+      starSizes[i] = THREE.MathUtils.lerp(0.5, 2.2, Math.random());
+      }
+
+      starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+      starGeometry.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+      starGeometry.setAttribute("size", new THREE.BufferAttribute(starSizes, 1));
+
+      const starMaterial = new THREE.PointsMaterial({
+      map: starTexture,
+      size: 0.55,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: true
+    });
+
+      const starField = new THREE.Points(starGeometry, starMaterial);
+      scene.add(starField);
+
+      const dustMaterial = new THREE.MeshBasicMaterial({
+      color: 0x3a2312,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+      const dustRing = new THREE.Mesh(new THREE.TorusGeometry(8, 2.2, 32, 180), dustMaterial);
+      dustRing.rotation.x = Math.PI / 2 + 0.08;
+      blackHoleGroup.add(dustRing);
+
+      function updateLabels() {
+      valueEls.mass.textContent = `${params.mass.toFixed(1)} M☉`;
+      valueEls.spin.textContent = `${params.spin.toFixed(2)} a*`;
+      valueEls.accretion.textContent = `${params.accretion.toFixed(2)} Ṁ`;
+      valueEls.lensing.textContent = `${params.lensing.toFixed(2)}×`;
+      valueEls.timeScale.textContent = `${params.timeScale.toFixed(2)}×`;
+
+      const rsKm = 2.95 * params.mass;
+      const iscoFactor = THREE.MathUtils.lerp(2.7, 1.24, params.spin);
+      const iscoKm = rsKm * iscoFactor;
+      const photonKm = rsKm * 1.5;
+      const tempMK = 3.3 + params.accretion * 4.8 + params.spin * 1.1;
+
+      valueEls.radius.textContent = `${rsKm.toFixed(1)} km`;
+      valueEls.isco.textContent = `${iscoKm.toFixed(1)} km`;
+      valueEls.photon.textContent = `${photonKm.toFixed(1)} km`;
+      valueEls.temp.textContent = `${tempMK.toFixed(1)} MK`;
+      }
+
+      function syncParamsFromInputs() {
+      params.mass = parseFloat(massInput.value);
+      params.spin = parseFloat(spinInput.value);
+      params.accretion = parseFloat(accretionInput.value);
+      params.lensing = parseFloat(lensingInput.value);
+      params.timeScale = parseFloat(timeInput.value);
+      haloMaterial.uniforms.lensing.value = params.lensing;
+      haloMaterial.uniforms.spin.value = params.spin;
+      updateLabels();
+      }
+
+      [massInput, spinInput, accretionInput, lensingInput, timeInput].forEach((input) => {
+        input.addEventListener("input", syncParamsFromInputs);
+      });
+
+      syncParamsFromInputs();
+
+      const clock = new THREE.Clock();
+      const tempColor = new THREE.Color();
+
+      function animateDisk(elapsed, delta) {
+      const pos = diskGeometry.attributes.position.array;
+      const color = diskGeometry.attributes.color.array;
+      const rs = 2 + params.mass * 0.065;
+      const isco = rs * THREE.MathUtils.lerp(2.7, 1.15, params.spin);
+      const outer = rs * THREE.MathUtils.lerp(8.5, 14.0, params.accretion);
+
+      for (let i = 0; i < diskCount; i++) {
+        const idx3 = i * 3;
+        const idx4 = i * 4;
+        const baseRadius = diskMeta[idx4];
+        const turbulence = diskMeta[idx4 + 3];
+        let angle = diskMeta[idx4 + 1];
+        const baseHeight = diskMeta[idx4 + 2];
+
+        const orbitalSpeed = Math.sqrt((params.mass * 0.08) / Math.pow(baseRadius, 3));
+        const frameDrag = 1 + params.spin * (0.28 + 0.22 / Math.max(baseRadius / rs, 1.2));
+        angle += orbitalSpeed * frameDrag * delta * 32 * params.timeScale;
+        diskMeta[idx4 + 1] = angle;
+
+        const radialWave = Math.sin(elapsed * (1.8 + turbulence * 3.4) + angle * 3.0) * 0.06 * rs;
+        const spiralShift = Math.sin(angle * 2.0 - elapsed * (3.2 + params.spin * 1.2)) * 0.03 * rs;
+        const radius = THREE.MathUtils.clamp(baseRadius + radialWave + spiralShift, isco * 0.98, outer);
+        const height = baseHeight + Math.sin(elapsed * (2.1 + turbulence * 6.0) + radius * 0.5) * 0.05 * rs;
+
+        pos[idx3] = Math.cos(angle) * radius;
+        pos[idx3 + 1] = height;
+        pos[idx3 + 2] = Math.sin(angle) * radius;
+
+        const tempBias = 1 - THREE.MathUtils.clamp((radius - isco) / (outer - isco), 0, 1);
+        const cameraDir = camera.position.clone().normalize();
+        const particleDir = new THREE.Vector3(pos[idx3], 0, pos[idx3 + 2]).normalize();
+        const dopplerBoost = THREE.MathUtils.clamp(0.55 + particleDir.dot(cameraDir) * 0.7 + params.spin * 0.12, 0.15, 1.0);
+        tempColor.copy(orbitalColor(Math.pow(tempBias, 0.64), dopplerBoost));
+        color[idx3] = tempColor.r;
+        color[idx3 + 1] = tempColor.g;
+        color[idx3 + 2] = tempColor.b;
+      }
+
+      diskGeometry.attributes.position.needsUpdate = true;
+      diskGeometry.attributes.color.needsUpdate = true;
+      diskPoints.rotation.y += delta * params.spin * 0.15;
+      }
+
+      function animateJets(elapsed, delta) {
+      const pos = jetGeometry.attributes.position.array;
+      for (let i = 0; i < jetCount; i++) {
+        const idx3 = i * 3;
+        const idx4 = i * 4;
+        const side = jetMeta[idx4];
+        const stream = jetMeta[idx4 + 1];
+        const angle = jetMeta[idx4 + 2];
+        const baseRadius = jetMeta[idx4 + 3];
+        const yFlow = THREE.MathUtils.lerp(5, 44, Math.pow(stream, 0.5));
+        const pulse = (elapsed * (0.6 + params.accretion * 1.3) + stream * 7.0) % 1;
+        const y = side * (3 + pulse * yFlow);
+        const radius = baseRadius * (1 + pulse * 0.45 + params.spin * 0.15);
+        pos[idx3] = Math.cos(angle + elapsed * 0.6) * radius;
+        pos[idx3 + 1] = y;
+        pos[idx3 + 2] = Math.sin(angle + elapsed * 0.6) * radius;
+      }
+      jetGeometry.attributes.position.needsUpdate = true;
+      jetPoints.material.opacity = 0.22 + params.accretion * 0.55;
+      jetPoints.rotation.y += delta * 0.14;
+      }
+
+      function updateStructure() {
+      const rs = 2 + params.mass * 0.065;
+      horizonMesh.scale.setScalar(rs / 2.2);
+      photonRing.scale.setScalar(THREE.MathUtils.lerp(1.05, 1.45, params.lensing) * (rs / 2.2));
+      dustRing.scale.setScalar(THREE.MathUtils.lerp(0.85, 1.25, params.accretion) * (rs / 2.2));
+      haloMesh.scale.setScalar(THREE.MathUtils.lerp(0.95, 1.35, params.lensing) * (rs / 2.2));
+      keyLight.intensity = 18 + params.accretion * 18;
+      keyLight.distance = 40 + rs * 4;
+      fillLight.intensity = 6 + params.lensing * 5;
+      diskMaterial.size = 0.11 + params.accretion * 0.12;
+      jetMaterial.size = 0.22 + params.accretion * 0.32;
+      photonRing.material.opacity = 0.18 + params.lensing * 0.11;
+      haloMaterial.uniforms.lensing.value = params.lensing;
+      haloMaterial.uniforms.spin.value = params.spin;
+      }
+
+      function animate() {
+      const delta = Math.min(clock.getDelta(), 0.033);
+      const elapsed = clock.elapsedTime;
+
+      dampOrbit();
+      haloMesh.quaternion.copy(camera.quaternion);
+      haloMaterial.uniforms.time.value = elapsed;
+
+      updateStructure();
+      animateDisk(elapsed, delta);
+      animateJets(elapsed, delta);
+
+      starField.rotation.y += delta * 0.0025;
+      blackHoleGroup.rotation.z = Math.sin(elapsed * 0.07) * 0.03;
+      dustRing.rotation.z += delta * 0.03;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    } catch (error) {
+      console.error(error);
+      showStatus(`Simulation failed to initialize: ${error.message}`);
+    }
+  </script>
 </body>
 </html>
